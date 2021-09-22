@@ -61,7 +61,7 @@ async def deduce(files: List[UploadFile] = File(...)):
     preds = [network(img_transform(img).unsqueeze(0)) for img in imgs]
     print(preds)
     preds = {filename: torch.argmax(pred).item() for filename, pred in zip(filenames, preds)}
-    return JSONResponse(content=preds)
+    return JSONResponse(content=preds, headers={"Access-Control-Allow-Origin": "*"})
 
 
 if __name__ == "__main__":
