@@ -48,7 +48,8 @@ app.add_middleware(
 async def deduce(files: List[UploadFile] = File(...)):
     network = Sum2NN()
     # network.load_state_dict(torch.load(Path.cwd().parent / "models" / "model_samples_3000_iter_8700_epoch_3.mdl"))
-    network.load_state_dict(torch.load("./models/model_samples_3000_iter_8700_epoch_3.mdl"))
+    network.load_state_dict(torch.load("./models/model_samples_3000_iter_8700_epoch_3.mdl",
+                                       map_location=torch.device('cpu')))
     img_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
 
     filenames = [f.filename for f in files]
