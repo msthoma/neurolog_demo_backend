@@ -32,14 +32,14 @@ app: FastAPI = FastAPI(
     # },
 )
 
-origins: List[str] = ["*"]
+origins: List[str] = ["https://msthoma.github.io/"]
 
 # Configure the CORS policy
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["POST"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
