@@ -2,6 +2,9 @@ import io
 from pathlib import Path
 from typing import List
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import PIL.ImageOps
 import torch
 import torchvision.transforms as transforms
@@ -60,8 +63,10 @@ async def deduce(files: List[UploadFile] = File(...)):
         img.save(Path.cwd() / filename)
 
     preds = [network(img_transform(img).unsqueeze(0)) for img in imgs]
-    print(preds)
     preds = {filename: torch.argmax(pred).item() for filename, pred in zip(filenames, preds)}
+
+    print("Predictions at", datetime.now(ZoneInfo("Europe/Nicosia")).strftime('%y-%m-%d %H:%M:%S'), "-", preds)
+
     return JSONResponse(content=preds, headers={"Access-Control-Allow-Origin": "*"})
 
 
