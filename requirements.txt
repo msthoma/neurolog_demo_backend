@@ -1,8 +1,8 @@
 -f https://download.pytorch.org/whl/torch_stable.html
-torch==1.12.1
-torchvision==0.13.1
+torch-cpu==1.12.1
+torchvision-cpu==0.13.1
 fastapi==0.68.0
 uvicorn[standard]==0.15.0
 python-multipart==0.0.5
-Pillow==8.3.1
+Pillow==9.2.0
 pexpect==4.8.0
