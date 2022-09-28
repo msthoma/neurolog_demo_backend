@@ -35,7 +35,7 @@ app: FastAPI = FastAPI(
     # },
 )
 
-origins: List[str] = ["https://msthoma.github.io/"]
+origins: List[str] = ["https://msthoma.github.io"]
 
 # Configure the CORS policy
 app.add_middleware(
@@ -51,21 +51,37 @@ app.add_middleware(
 async def deduce(files: List[UploadFile] = File(...)):
     network = Sum2NN()
     # network.load_state_dict(torch.load(Path.cwd().parent / "models" / "model_samples_3000_iter_8700_epoch_3.mdl"))
-    network.load_state_dict(torch.load("./models/model_samples_3000_iter_8700_epoch_3.mdl",
-                                       map_location=torch.device('cpu')))
-    img_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+    network.load_state_dict(
+        torch.load(
+            "./models/model_samples_3000_iter_8700_epoch_3.mdl",
+            map_location=torch.device("cpu"),
+        )
+    )
+    img_transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
+    )
 
     filenames = [f.filename for f in files]
 
     contents = [await f.read() for f in files]
-    imgs = [PIL.ImageOps.invert(Image.open(io.BytesIO(i)).resize((28, 28)).convert("L")) for i in contents]
+    imgs = [
+        PIL.ImageOps.invert(Image.open(io.BytesIO(i)).resize((28, 28)).convert("L"))
+        for i in contents
+    ]
     for img, filename in zip(imgs, filenames):
         img.save(Path.cwd() / filename)
 
     preds = [network(img_transform(img).unsqueeze(0)) for img in imgs]
-    preds = {filename: torch.argmax(pred).item() for filename, pred in zip(filenames, preds)}
+    preds = {
+        filename: torch.argmax(pred).item() for filename, pred in zip(filenames, preds)
+    }
 
-    print("Predictions at", datetime.now(ZoneInfo("Europe/Nicosia")).strftime('%y-%m-%d %H:%M:%S'), "-", preds)
+    print(
+        "Predictions at",
+        datetime.now(ZoneInfo("Europe/Nicosia")).strftime("%y-%m-%d %H:%M:%S"),
+        "-",
+        preds,
+    )
 
     return JSONResponse(content=preds, headers={"Access-Control-Allow-Origin": "*"})
 
