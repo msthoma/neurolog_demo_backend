@@ -1,8 +1,7 @@
 import io
+from datetime import datetime
 from pathlib import Path
 from typing import List
-
-from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import PIL.ImageOps
@@ -14,7 +13,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
-from models.model import Sum2NN
+from models.model import MnistNNForNeurologDemo
 
 description: str = """
 Backend for the Neurolog demo.
@@ -35,7 +34,8 @@ app: FastAPI = FastAPI(
     # },
 )
 
-origins: List[str] = ["https://msthoma.github.io"]
+# origins: List[str] = ["https://msthoma.github.io"]
+origins: List[str] = ["*"]
 
 # Configure the CORS policy
 app.add_middleware(
@@ -46,17 +46,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+network = MnistNNForNeurologDemo()
+# network.load_state_dict(
+#     torch.load(Path.cwd().parent / "models" / "nn_for_neurolog_demo_epoch_100.mdl")
+# )
+network.load_state_dict(
+    torch.load(
+        "./models/nn_for_neurolog_demo_epoch_100.mdl",
+        map_location=torch.device("cpu"),
+    )
+)
+
 
 @app.post("/deduce")
 async def deduce(files: List[UploadFile] = File(...)):
-    network = Sum2NN()
-    # network.load_state_dict(torch.load(Path.cwd().parent / "models" / "model_samples_3000_iter_8700_epoch_3.mdl"))
-    network.load_state_dict(
-        torch.load(
-            "./models/model_samples_3000_iter_8700_epoch_3.mdl",
-            map_location=torch.device("cpu"),
-        )
-    )
     img_transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
     )
@@ -64,26 +67,33 @@ async def deduce(files: List[UploadFile] = File(...)):
     filenames = [f.filename for f in files]
 
     contents = [await f.read() for f in files]
+
     imgs = [
         PIL.ImageOps.invert(Image.open(io.BytesIO(i)).resize((28, 28)).convert("L"))
         for i in contents
     ]
+
     for img, filename in zip(imgs, filenames):
         img.save(Path.cwd() / filename)
 
-    preds = [network(img_transform(img).unsqueeze(0)) for img in imgs]
-    preds = {
-        filename: torch.argmax(pred).item() for filename, pred in zip(filenames, preds)
-    }
+    # stack photos and infer with network
+    preds = network(torch.stack([img_transform(img) for img in imgs], dim=0))
+
+    # softmax results to get classifications (NN does not have a softmax after final layer)
+    predicted_digits = (
+        torch.argmax(torch.nn.functional.softmax(preds, dim=1), dim=1).numpy().tolist()
+    )
+
+    response = {filename: digit for filename, digit in zip(filenames, predicted_digits)}
 
     print(
         "Predictions at",
         datetime.now(ZoneInfo("Europe/Nicosia")).strftime("%y-%m-%d %H:%M:%S"),
         "-",
-        preds,
+        response,
     )
 
-    return JSONResponse(content=preds, headers={"Access-Control-Allow-Origin": "*"})
+    return JSONResponse(content=response, headers={"Access-Control-Allow-Origin": "*"})
 
 
 if __name__ == "__main__":
