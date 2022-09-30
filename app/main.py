@@ -52,7 +52,7 @@ network = MnistNNForNeurologDemo()
 # )
 network.load_state_dict(
     torch.load(
-        "./models/nn_for_neurolog_demo_epoch_100.mdl",
+        "./models/nn_for_neurolog_demo_epoch_080_narrow.mdl",
         map_location=torch.device("cpu"),
     )
 )
