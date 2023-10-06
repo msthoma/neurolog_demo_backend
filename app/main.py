@@ -12,17 +12,13 @@ from PIL import Image
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
+from transformers import pipeline
 
 from models.model import MnistNNForNeurologDemo
 
-description: str = """
-Backend for the Neurolog demo.
-"""
-
-# FastAPI for
 app: FastAPI = FastAPI(
     title="Neurolog demo backend.",
-    description=description,
+    description="Backend for the Neurolog demo.",
     version="0.0.1",
     terms_of_service="",
     contact={
@@ -34,8 +30,8 @@ app: FastAPI = FastAPI(
     # },
 )
 
-# origins: List[str] = ["https://msthoma.github.io"]
-origins: List[str] = ["*"]
+origins: List[str] = ["https://msthoma.github.io"]
+# origins: List[str] = ["*"]
 
 # Configure the CORS policy
 app.add_middleware(
@@ -56,14 +52,17 @@ network.load_state_dict(
         map_location=torch.device("cpu"),
     )
 )
+img_transform = transforms.Compose(
+    [transforms.ToTensor(), transforms.Normalize(mean=(0.5,), std=(0.5,))]
+)
+pipe = pipeline(
+    task="image-classification",
+    model="farleyknight-org-username/vit-base-mnist",
+)
 
 
 @app.post("/deduce")
 async def deduce(files: List[UploadFile] = File(...)):
-    img_transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
-    )
-
     filenames = [f.filename for f in files]
 
     contents = [await f.read() for f in files]
@@ -83,6 +82,40 @@ async def deduce(files: List[UploadFile] = File(...)):
     predicted_digits = (
         torch.argmax(torch.nn.functional.softmax(preds, dim=1), dim=1).numpy().tolist()
     )
+
+    response = {filename: digit for filename, digit in zip(filenames, predicted_digits)}
+
+    print(
+        "Predictions at",
+        datetime.now(ZoneInfo("Europe/Nicosia")).strftime("%y-%m-%d %H:%M:%S"),
+        "-",
+        response,
+    )
+
+    return JSONResponse(content=response, headers={"Access-Control-Allow-Origin": "*"})
+
+
+@app.post("/deduce_vit")
+async def deduce_vit(files: List[UploadFile] = File(...)):
+    filenames = [f.filename for f in files]
+
+    contents = [await f.read() for f in files]
+
+    imgs = [
+        PIL.ImageOps.invert(Image.open(io.BytesIO(i)).resize((28, 28)).convert("L"))
+        for i in contents
+    ]
+
+    for img, filename in zip(imgs, filenames):
+        img.save(Path.cwd() / filename)
+
+    # preds look like this:
+    # [
+    #     [{"score": 0.9960125684738159, "label": "2"}, ...],
+    #     [{"score": 0.9960125684738159, "label": "2"}, ...],
+    # ]
+    preds = pipe(imgs, top_k=10)
+    predicted_digits = [int(pred[0]["label"]) for pred in preds]
 
     response = {filename: digit for filename, digit in zip(filenames, predicted_digits)}
 
